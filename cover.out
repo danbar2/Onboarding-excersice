@@ -1,0 +1,27 @@
+mode: set
+github.com/example/memcached-operator/controllers/helloworld_controller.go:60.102,67.67 4 1
+github.com/example/memcached-operator/controllers/helloworld_controller.go:75.2,78.59 3 1
+github.com/example/memcached-operator/controllers/helloworld_controller.go:88.2,100.54 6 1
+github.com/example/memcached-operator/controllers/helloworld_controller.go:105.2,108.47 3 1
+github.com/example/memcached-operator/controllers/helloworld_controller.go:117.2,118.36 2 1
+github.com/example/memcached-operator/controllers/helloworld_controller.go:127.2,132.59 4 1
+github.com/example/memcached-operator/controllers/helloworld_controller.go:137.2,139.41 2 1
+github.com/example/memcached-operator/controllers/helloworld_controller.go:67.67,68.29 1 0
+github.com/example/memcached-operator/controllers/helloworld_controller.go:71.3,72.28 2 0
+github.com/example/memcached-operator/controllers/helloworld_controller.go:68.29,70.4 1 0
+github.com/example/memcached-operator/controllers/helloworld_controller.go:78.59,79.29 1 1
+github.com/example/memcached-operator/controllers/helloworld_controller.go:84.3,85.28 2 0
+github.com/example/memcached-operator/controllers/helloworld_controller.go:79.29,83.4 3 1
+github.com/example/memcached-operator/controllers/helloworld_controller.go:100.54,103.3 2 0
+github.com/example/memcached-operator/controllers/helloworld_controller.go:108.47,109.71 1 1
+github.com/example/memcached-operator/controllers/helloworld_controller.go:114.3,114.41 1 1
+github.com/example/memcached-operator/controllers/helloworld_controller.go:109.71,112.4 2 1
+github.com/example/memcached-operator/controllers/helloworld_controller.go:118.36,120.40 2 1
+github.com/example/memcached-operator/controllers/helloworld_controller.go:120.40,121.63 1 0
+github.com/example/memcached-operator/controllers/helloworld_controller.go:121.63,123.5 1 0
+github.com/example/memcached-operator/controllers/helloworld_controller.go:132.59,135.3 2 1
+github.com/example/memcached-operator/controllers/helloworld_controller.go:142.85,165.2 4 1
+github.com/example/memcached-operator/controllers/helloworld_controller.go:167.81,184.2 5 1
+github.com/example/memcached-operator/controllers/helloworld_controller.go:186.50,188.2 1 1
+github.com/example/memcached-operator/controllers/helloworld_controller.go:191.73,197.2 1 1
+github.com/example/memcached-operator/controllers/helloworld_controller.go:199.44,201.2 1 1
