@@ -48,15 +48,6 @@ type HelloworldReconciler struct {
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the Helloworld object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *HelloworldReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
@@ -72,22 +63,70 @@ func (r *HelloworldReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 
+	stopReconcile, result, err := r.validateOrCreateSvcFor(helloworld, ctx, req)
+
+	if stopReconcile {
+		return result, err
+	}
+
+	stopReconcile, result, err = r.validateOrCreatePodsFor(helloworld, ctx, req)
+
+	if stopReconcile {
+		return result, err
+	}
+
+	Logging(req, "Finished succesfully")
+
+	return ctrl.Result{Requeue: false}, nil
+}
+
+func (r *HelloworldReconciler) validateOrCreateSvcFor(helloworld *v1alpha1.Helloworld, ctx context.Context, req ctrl.Request) (bool, ctrl.Result, error) {
 	svc := &v1.Service{}
 	svcNamespacedName := types.NamespacedName{Namespace: helloworld.Namespace, Name: helloworld.Name + "-service"}
+	stopReconcile := true
 
 	if err := r.Get(ctx, svcNamespacedName, svc); err != nil {
 		if errors.IsNotFound(err) {
 			Logging(req, "Creating a service")
-			r.Create(ctx, r.svcForHelloworld(helloworld))
-			return ctrl.Result{Requeue: true}, nil
+			r.Create(ctx, r.defineSvcFor(helloworld))
+			return stopReconcile, ctrl.Result{Requeue: true}, nil
 		}
 		log.Log.Error(err, "unable to fetch "+helloworld.Name+"'s service")
-		return ctrl.Result{}, err
+		return stopReconcile, ctrl.Result{}, err
 	}
 
 	Logging(req, "Service exist - "+svc.Name)
+	return !stopReconcile, ctrl.Result{}, nil
+}
 
+func (r *HelloworldReconciler) defineSvcFor(helloworld *v1alpha1.Helloworld) *v1.Service {
+	lbls := labelsForApp(helloworld.Name)
+
+	svc := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      helloworld.Name + "-service",
+			Namespace: helloworld.Namespace,
+			Labels:    lbls,
+		},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{
+				{
+					Protocol:   v1.ProtocolTCP,
+					Port:       8080,
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
+				}},
+			Selector: lbls,
+			Type:     v1.ServiceTypeClusterIP,
+		},
+	}
+
+	controllerutil.SetControllerReference(helloworld, svc, r.Scheme)
+	return svc
+}
+
+func (r *HelloworldReconciler) validateOrCreatePodsFor(helloworld *v1alpha1.Helloworld, ctx context.Context, req ctrl.Request) (bool, ctrl.Result, error) {
 	requiredReplicas := helloworld.Spec.ReplicaCount
+	stopReconcile := true
 
 	Logging(req, "Required count of pods is "+fmt.Sprint(requiredReplicas))
 
@@ -99,7 +138,7 @@ func (r *HelloworldReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	if err := r.List(ctx, podList, opts...); err != nil {
 		log.Log.Error(err, "unable to list "+helloworld.Name+"'s pods")
-		return ctrl.Result{}, err
+		return stopReconcile, ctrl.Result{}, err
 	}
 
 	currentReplicas := len(podList.Items)
@@ -108,10 +147,10 @@ func (r *HelloworldReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if requiredReplicas > int32(currentReplicas) {
 		for i := int32(0); i < requiredReplicas-int32(currentReplicas); i++ {
 			Logging(req, "Creating a pod number "+fmt.Sprint(i))
-			r.Create(ctx, r.podForHelloworld(helloworld))
+			r.Create(ctx, r.definePodFor(helloworld))
 		}
 
-		return ctrl.Result{Requeue: true}, nil
+		return stopReconcile, ctrl.Result{Requeue: true}, nil
 	}
 
 	countReady := 0
@@ -131,55 +170,36 @@ func (r *HelloworldReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	if err := r.Status().Update(ctx, helloworld); err != nil {
 		log.Log.Error(err, "unable to update Helloworld")
-		return ctrl.Result{}, err
+		return stopReconcile, ctrl.Result{}, err
 	}
 
-	Logging(req, "Finished succesfully")
-
-	return ctrl.Result{Requeue: false}, nil
+	return !stopReconcile, ctrl.Result{}, nil
 }
 
-func (r *HelloworldReconciler) svcForHelloworld(h *v1alpha1.Helloworld) *v1.Service {
-	lbls := labelsForApp(h.Name)
-
-	svc := &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      h.Name + "-service",
-			Namespace: h.Namespace,
-			Labels:    lbls,
-		},
-		Spec: v1.ServiceSpec{
-			Ports: []v1.ServicePort{
-				{
-					Protocol:   v1.ProtocolTCP,
-					Port:       8080,
-					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
-				}},
-			Selector: lbls,
-			Type:     v1.ServiceTypeClusterIP,
-		},
-	}
-
-	controllerutil.SetControllerReference(h, svc, r.Scheme)
-	return svc
-}
-
-func (r *HelloworldReconciler) podForHelloworld(h *v1alpha1.Helloworld) *v1.Pod {
-	lbls := labelsForApp(h.Name)
-	podName := h.Name + "-pod-" + fmt.Sprint(time.Now().UnixNano())
+func (r *HelloworldReconciler) definePodFor(helloworld *v1alpha1.Helloworld) *v1.Pod {
+	lbls := labelsForApp(helloworld.Name)
+	podName := helloworld.Name + "-pod-" + fmt.Sprint(time.Now().UnixNano())
+	const svcImage = "gcr.io/run-ai-lab/dans-service"
 
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      podName,
-			Namespace: h.Namespace,
+			Namespace: helloworld.Namespace,
 			Labels:    lbls,
 		},
 		Spec: v1.PodSpec{
-			Containers: []v1.Container{{Name: podName + "-contatiner", Image: "gcr.io/run-ai-lab/dans-service", Env: []v1.EnvVar{{Name: "content", Value: h.Spec.DefaultContent}}}},
+			Containers: []v1.Container{{
+				Name:  podName + "-contatiner",
+				Image: svcImage,
+				Env: []v1.EnvVar{{
+					Name:  "content",
+					Value: helloworld.Spec.DefaultContent,
+				}},
+			}},
 		},
 	}
 
-	controllerutil.SetControllerReference(h, pod, r.Scheme)
+	controllerutil.SetControllerReference(helloworld, pod, r.Scheme)
 	return pod
 }
 
