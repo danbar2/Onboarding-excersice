@@ -108,8 +108,8 @@ const (
 )
 
 var _ = Describe("Helloworld controller", func() {
-	It("Should increase CronJob Status.Active count when new Jobs are created", func() {
-		By("By creating a new CronJob")
+	It("Should create new pods for each Helloworld instance, with count equals to ReplicaCount", func() {
+		By("By creating a new Helloworld")
 		ctx := context.Background()
 		helloworld := &cachev1alpha1.Helloworld{
 			TypeMeta:   metav1.TypeMeta{APIVersion: "cache.my.domain/v1alpha1", Kind: "Helloworld"},
