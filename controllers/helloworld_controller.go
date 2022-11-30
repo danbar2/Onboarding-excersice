@@ -91,11 +91,11 @@ func (r *HelloworldReconciler) validateOrCreateSvcFor(helloworld *v1alpha1.Hello
 			r.Create(ctx, r.defineSvcFor(helloworld))
 			return stopReconcile, ctrl.Result{Requeue: true}, nil
 		}
-		log.Log.Error(err, "unable to fetch "+helloworld.Name+"'s service")
+		log.Log.Error(err, fmt.Sprintf("unable to fetch %s's service", helloworld.Name))
 		return stopReconcile, ctrl.Result{}, err
 	}
 
-	Logging(req, "Service exist - "+svc.Name)
+	Logging(req, fmt.Sprintf("Service exist - %s", svc.Name))
 	return !stopReconcile, ctrl.Result{}, nil
 }
 
@@ -128,7 +128,7 @@ func (r *HelloworldReconciler) validateOrCreatePodsFor(helloworld *v1alpha1.Hell
 	requiredReplicas := helloworld.Spec.ReplicaCount
 	stopReconcile := true
 
-	Logging(req, "Required count of pods is "+fmt.Sprint(requiredReplicas))
+	Logging(req, fmt.Sprintf("Required count of pods is %d", requiredReplicas))
 
 	podList := &v1.PodList{}
 	opts := []client.ListOption{
@@ -137,22 +137,27 @@ func (r *HelloworldReconciler) validateOrCreatePodsFor(helloworld *v1alpha1.Hell
 	}
 
 	if err := r.List(ctx, podList, opts...); err != nil {
-		log.Log.Error(err, "unable to list "+helloworld.Name+"'s pods")
+		log.Log.Error(err, fmt.Sprintf("unable to list %s's pods", helloworld.Name))
 		return stopReconcile, ctrl.Result{}, err
 	}
 
 	currentReplicas := len(podList.Items)
-	Logging(req, "Current count of pods is "+fmt.Sprint(currentReplicas))
+	Logging(req, fmt.Sprintf("Current count of pods is %d", currentReplicas))
 
 	if requiredReplicas > int32(currentReplicas) {
 		for i := int32(0); i < requiredReplicas-int32(currentReplicas); i++ {
-			Logging(req, "Creating a pod number "+fmt.Sprint(i))
+			Logging(req, fmt.Sprintf("Creating a pod number %d", i))
 			r.Create(ctx, r.definePodFor(helloworld))
 		}
 
 		return stopReconcile, ctrl.Result{Requeue: true}, nil
 	}
 
+	return r.updateStatusFor(helloworld, podList, ctx, req)
+}
+
+func (r *HelloworldReconciler) updateStatusFor(helloworld *v1alpha1.Helloworld, podList *v1.PodList, ctx context.Context, req ctrl.Request) (bool, ctrl.Result, error) {
+	stopReconcile := true
 	countReady := 0
 	for _, pod := range podList.Items {
 		conditions := pod.Status.Conditions
@@ -163,7 +168,7 @@ func (r *HelloworldReconciler) validateOrCreatePodsFor(helloworld *v1alpha1.Hell
 		}
 	}
 
-	helloworld.Status.AvailableReplicas = int32(currentReplicas)
+	helloworld.Status.AvailableReplicas = int32(len(podList.Items))
 	helloworld.Status.ReadyReplicas = int32(countReady)
 
 	Logging(req, "Updating status")
@@ -217,5 +222,5 @@ func (r *HelloworldReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func Logging(req ctrl.Request, msg string) {
-	log.Log.Info(req.Name + " - " + msg)
+	log.Log.Info(fmt.Sprintf("%s - %s", req.Name, msg))
 }
